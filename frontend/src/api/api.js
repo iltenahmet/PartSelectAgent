@@ -1,8 +1,24 @@
+
 export const getAIMessage = async (userQuery) => {
-  const message = 
-    {
-      role: "assistant",
-      content: "Connect your backend here...."
+  try {
+    const response = await fetch('/api/message', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: userQuery }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error: ${response.status}`);
     }
-  return message;
+
+    const data = await response.json();
+    console.log(data);
+    return { role: "agent", content: data.response };
+  } catch (error) {
+    console.error('Error fetching AI message:', error);
+    return { role: "agent", content: "Error"};
+  }
 };
+
