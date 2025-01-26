@@ -7,7 +7,7 @@ async def crawl():
     run_config = CrawlerRunConfig()  # Default crawl run configuration
 
     async with AsyncWebCrawler(config=browser_config) as crawler:
-        result = await crawler.arun(
+        result = await crawler.run(
             url="https://www.partselect.com/", config=run_config
         )
         print(result.markdown)  # Print clean markdown content
