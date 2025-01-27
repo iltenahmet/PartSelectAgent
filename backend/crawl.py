@@ -18,28 +18,14 @@ def crawl_multiple(urls: list) -> list:
     """Returns a list of markdown content"""
     res = []
     for url in urls:
-        res.append(crawl_async(url))
+        res.append(asyncio.run(crawl_async(url)))
     return res
 
 
-def find_products(maxProductLimit: int) -> list:
-    start = time.time()
+def find_products(maxProductLimit: int):
     urls = get_all_relevant_product_urls(maxProductLimit)
-    end = time.time()
-
-    print(f"Time for getting urls(): {(end - start):.2f} seconds")
-    print("total_product_count: " + str(len(urls)))
-
-    with open("product_urls.txt", "w") as file:
-        for i, url in enumerate(urls, start=1):
-            file.write(f"{i}) {url}\n")
-
-    start = time.time()
     markdowns = crawl_multiple(urls)
-    end = time.time()
-    print(f"Time for getting markdowns(): {(end - start):.2f} seconds")
-
-    return markdowns
+    return urls, markdowns
 
 
 def get_all_relevant_product_urls(maxProductLimit: int) -> list:

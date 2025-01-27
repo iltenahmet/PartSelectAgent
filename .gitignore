@@ -138,3 +138,5 @@ __pycache__/
 
 build/
 .DS_Store
+
+chroma_persistent_data/
