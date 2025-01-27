@@ -1,28 +1,54 @@
 import asyncio
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
-from url_normalize import url_normalize
 import re
 import time
 
-PRODUCT_LIMIT = 50
 
 async def crawl_async(url):
-    browser_config = BrowserConfig()  # Default browser configuration
-    run_config = CrawlerRunConfig()  # Default crawl run configuration
+    browser_config = BrowserConfig()
+    run_config = CrawlerRunConfig()
 
     async with AsyncWebCrawler(config=browser_config) as crawler:
         result = await crawler.arun(url=url, config=run_config)
         return result.markdown
 
 
-def get_all_relevant_product_urls():
+def crawl_multiple(urls: list) -> list:
+    """Returns a list of markdown content"""
+    res = []
+    for url in urls:
+        res.append(crawl_async(url))
+    return res
+
+
+def find_products(maxProductLimit: int) -> list:
+    start = time.time()
+    urls = get_all_relevant_product_urls(maxProductLimit)
+    end = time.time()
+
+    print(f"Time for getting urls(): {(end - start):.2f} seconds")
+    print("total_product_count: " + str(len(urls)))
+
+    with open("product_urls.txt", "w") as file:
+        for i, url in enumerate(urls, start=1):
+            file.write(f"{i}) {url}\n")
+
+    start = time.time()
+    markdowns = crawl_multiple(urls)
+    end = time.time()
+    print(f"Time for getting markdowns(): {(end - start):.2f} seconds")
+
+    return markdowns
+
+
+def get_all_relevant_product_urls(maxProductLimit: int) -> list:
     visited_product_urls = set()
     initial_markdown = asyncio.run(crawl_async("https://www.partselect.com/"))
     list_urls = extract_list_urls(initial_markdown)
     visited_urls = set()
 
-    while list_urls and len(visited_product_urls) < PRODUCT_LIMIT:
+    while list_urls and len(visited_product_urls) < maxProductLimit:
         list_url = list_urls.pop()
         if list_url in visited_urls:
             continue
@@ -35,7 +61,7 @@ def get_all_relevant_product_urls():
 
         products = extract_product_urls(list_page_markdown)
         for product_url in products:
-            if len(visited_product_urls) >= PRODUCT_LIMIT:
+            if len(visited_product_urls) >= maxProductLimit:
                 break
             if product_url not in visited_product_urls:
                 visited_product_urls.add(product_url)
@@ -77,7 +103,7 @@ def extract_list_urls(text):
     for line in lines:
         match = re.search(list_item_pattern, line)
         if match and ("dishwasher" in line.lower() or "refrigerator" in line.lower()):
-            url = match.group(1) 
+            url = match.group(1)
             extracted_urls.append(clean_url(url))
 
     return extracted_urls
@@ -87,18 +113,3 @@ def clean_url(url):
     extracted_part = url.split("</")[-1].split(">")[0]
     cleaned_url = f"https://www.partselect.com/{extracted_part}"
     return cleaned_url
-
-
-def crawl():
-    start_time = time.time() 
-    urls = get_all_relevant_product_urls()
-    end_time = time.time()
-    
-    elapsed_time = end_time - start_time  # Calculate elapsed time
-    print(f"Time passed for get_all_relevant_product_urls(): {elapsed_time:.2f} seconds")
-    print("total_product_count: " + str(len(urls)))
-
-    with open("product_urls.txt", "w") as file:
-        for i, url in enumerate(urls, start=1):
-            file.write(f"{i}) {url}\n")
-    
