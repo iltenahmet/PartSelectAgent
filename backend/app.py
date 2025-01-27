@@ -3,10 +3,13 @@ from flask_cors import CORS
 from openai import OpenAI
 from searchPartTool import search_partselect
 import json
+from crawl import crawl
 
 app = Flask(__name__)
 client = OpenAI()
 CORS(app, resources={r"/*": {"origins": ["chrome-extension://<your-extension-id>"]}})
+
+crawl()
 
 tools = [
     {
