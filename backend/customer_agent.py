@@ -1,6 +1,7 @@
 import json
+import re
 from search_part_tool import search_partselect
-from vector_db import query_chroma
+from vector_db import query_chroma, query_chroma_with_exact_id
 
 tools = [
     {
@@ -70,19 +71,23 @@ no_search_prompt = {
 
 
 def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bool):
-    results = query_chroma(query, 25)
+    chroma_context = ""
 
+    match = re.search(r'PS\d{8}', query)
+    if match:
+        chroma_context += query_chroma_with_exact_id(match.group())
+
+    results = query_chroma(query, 25)
     if results["documents"]:
         flattened_documents = [
             doc for sublist in results["documents"] for doc in sublist
         ]
-        chroma_context = "\n\n".join(flattened_documents)
+        chroma_context += "\n\n".join(flattened_documents)
+
+    if len(chroma_context) > 0:
         context_message = f"The following context was retrieved from the database to assist with the query:\n{chroma_context}"
     else:
-        chroma_context = None
         context_message = "No relevant context was found in the database for the query."
-
-    print(chroma_context)
 
     messages = [
         system_prompt,

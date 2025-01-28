@@ -116,6 +116,15 @@ def query_chroma(query, top_n=4):
     return results
 
 
+def query_chroma_with_exact_id(id: str) -> str:
+    result = collection.get(ids=id)
+    if result and "documents" in result and len(result["documents"]) > 0:
+        first_document = result["documents"][0]
+        return str(first_document)
+    else:
+        return ""
+
+
 def extract_product_info(markdown_content, url, llm_client) -> dict:
     messages = copy.deepcopy(messages_template)
     messages[0]["content"] = messages[0]["content"].format(
