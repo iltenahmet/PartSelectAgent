@@ -1,3 +1,8 @@
+'''
+This file is responsible for handling queries and insertions to our vector database: ChromaDB
+It is also responsible for making the necessary LLM calls to extract product information before inserting data into the database.
+'''
+
 import re
 import copy
 import yaml
@@ -12,6 +17,7 @@ collection = client.get_or_create_collection(collection_name)
 
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 
+# Make sure all the information is in strict YAML format for ease of processing
 messages_template = [
     {
         "role": "user",
@@ -59,9 +65,15 @@ messages_template = [
 
 
 def add_to_vector_db(product_markdown: str, url: str, llm_client):
+    '''
+    Add product information to the database, given the product information in markdown format, and the product url
+    '''
+
+    # LLM call to get the product information
     product_info = extract_product_info(product_markdown, url, llm_client)
     print("adding to vector db " + product_info["Product Name"])
 
+    # Create the document to add to the database
     document = f"""
     Product Name: {product_info['Product Name']}
     Product Description: {product_info['Product Description']}
@@ -75,8 +87,8 @@ def add_to_vector_db(product_markdown: str, url: str, llm_client):
     URL: {product_info['URL']}
     """
 
+    # Create and add the embedding and the metadata
     embedding = embedding_model.encode(document)
-
     collection.add(
         documents=[document],
         embeddings=[embedding],
@@ -97,6 +109,10 @@ def add_to_vector_db(product_markdown: str, url: str, llm_client):
 
 
 def is_in_vector_db(url: str) -> bool:
+    '''
+    Returns whether a product is in the database or not
+    Takes in a url and extracts the product number to check for an exact match
+    '''
     match = re.search(r"PS(\d{8})", url)
     if not match:
         return False
@@ -106,6 +122,9 @@ def is_in_vector_db(url: str) -> bool:
 
 
 def query_chroma(query, top_n=4):
+    '''
+    Query the the database
+    '''
     query_embedding = embedding_model.encode(query)
 
     results = collection.query(
@@ -117,6 +136,9 @@ def query_chroma(query, top_n=4):
 
 
 def query_chroma_with_exact_id(id: str) -> str:
+    '''
+    Query the database with an exact product number
+    '''
     result = collection.get(ids=id)
     if result and "documents" in result and len(result["documents"]) > 0:
         first_document = result["documents"][0]
@@ -126,6 +148,13 @@ def query_chroma_with_exact_id(id: str) -> str:
 
 
 def extract_product_info(markdown_content, url, llm_client) -> dict:
+    '''
+    Queries the LLM to extract product information. Expects the LLM response to be in strict YAML format.
+    Then validates and parses the YAML text.
+
+    NOTE: LLM call to extract each product information is costly and slow, this can be optimized by manual string parsing instead. 
+    However, then the parsing algorithm may need to be updated if there are changes to the way the website is organized. 
+    '''
     messages = copy.deepcopy(messages_template)
     messages[0]["content"] = messages[0]["content"].format(
         markdown_content=markdown_content

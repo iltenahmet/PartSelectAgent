@@ -1,3 +1,8 @@
+"""
+This file defines the tools, prompts, and logic for handling interactions with the customer agent.
+It manages querying PartSelect for appliance parts and generates responses based on user queries.
+"""
+
 import json
 import re
 from search_part_tool import search_partselect
@@ -70,13 +75,21 @@ no_search_prompt = {
 }
 
 
-def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bool):
+def query_customer_agent(
+    query: str, chat_history: list, llm_client, enable_browse: bool
+):
+    """
+    Query the LLM with a user query. It attempts to gather context from the database and optionally browse PartSelect if enabled.
+    """
+
     chroma_context = ""
 
-    match = re.search(r'PS\d{8}', query)
+    # If there is an exact match to a Part Number, query for the exact product id
+    match = re.search(r"PS\d{8}", query)
     if match:
         chroma_context += query_chroma_with_exact_id(match.group())
 
+    # Query the vector-db with the whole message
     results = query_chroma(query, 25)
     if results["documents"]:
         flattened_documents = [
@@ -84,14 +97,18 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
         ]
         chroma_context += "\n\n".join(flattened_documents)
 
+    # Let the LLM know whether it could receive relevant information from the vector db
     if len(chroma_context) > 0:
         context_message = f"The following context was retrieved from the database to assist with the query:\n{chroma_context}"
     else:
         context_message = "No relevant context was found in the database for the query."
 
+    # Add all the prompts, chat history, chroma_db context
     messages = [
         system_prompt,
-        search_prompt if enable_browse else no_search_prompt,
+        (
+            search_prompt if enable_browse else no_search_prompt
+        ),  # let the LLM know if search tool is available or not
         *chat_history,
         {"role": "system", "content": context_message},
         {"role": "user", "content": query},
@@ -100,14 +117,20 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
     completion = llm_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
-        tools=tools if enable_browse else None,
-        tool_choice="auto" if enable_browse else None,
+        tools=(
+            tools if enable_browse else None
+        ),  # enable tool use only if browsing is enabled
+        tool_choice=(
+            "auto" if enable_browse else None
+        ),  # enable tool use only if browsing is enabled
     )
 
+    # return the response if the LLM didn't have a tool call (for the browsing functionality)
     response = completion.choices[0].message
     if not response.tool_calls:
         return response.content
 
+    # if the LLM decided to browse part select, gather results from search_partselect function
     args = json.loads(response.tool_calls[0].function.arguments)
     result = search_partselect(args["part_number"])
     messages.append(response)
@@ -118,6 +141,8 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
             "content": result,
         }
     )
+
+    # query the LLM with the additional context gathered
     completion_after_search = llm_client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
