@@ -1,7 +1,6 @@
-import asyncio
+import re
 import copy
 import yaml
-from crawl import *
 from chromadb import chromadb
 from sentence_transformers import SentenceTransformer
 
@@ -59,54 +58,44 @@ messages_template = [
 ]
 
 
-def fill_vector_db(llm_client, num_products: int):
-    start = time.time()
-    urls, markdowns = find_products(num_products)
-    end = time.time()
-    print(f"time to find products: {end - start:.2f}s")
+def add_to_vector_db(product_markdown: str, url: str, llm_client):
+    match = re.search(r"PS(\d{8})", url)
+    if match and collection.get(ids=match.group(0)):
+        print(f"Product with id {match.group(0)} already exists in the database, skipping!")
+        return
 
-    start = time.time()
-    products = []
-    for i in range(0, len(urls)):
-        product_info = extract_product_info(markdowns[i], urls[i], llm_client)
-        if product_info:
-            products.append(product_info)
-    end = time.time()
-    print(f"time spent extracting product info from llm: {end - start:.2f}s")
+    product_info = extract_product_info(product_markdown, url, llm_client)
 
-    start = time.time()
-    for product in products:
-        print("adding " + product["Product Name"])
-        document = f"""
-        Product Name: {product['Product Name']}
-        Product Description: {product['Product Description']}
-        PartSelect Number: {product['PartSelect Number']}
-        Manufacturer Part Number: {product['Manufacturer Part Number']}
-        Manufactured by: {product['Manufactured by']}
-        Manufactured for: {', '.join(product['Manufactured for'])}
-        This part fixes the following symptoms: {', '.join(product['This part fixes the following symptoms'])}
-        This part works with the following products: {', '.join(product['This part works with the following products'])}
-        Part replaces these: {', '.join(product['Part replaces these'])}
-        URL: {product['URL']}
-        """
+    document = f"""
+    Product Name: {product_info['Product Name']}
+    Product Description: {product_info['Product Description']}
+    PartSelect Number: {product_info['PartSelect Number']}
+    Manufacturer Part Number: {product_info['Manufacturer Part Number']}
+    Manufactured by: {product_info['Manufactured by']}
+    Manufactured for: {', '.join(product_info['Manufactured for'])}
+    This part fixes the following symptoms: {', '.join(product_info['This part fixes the following symptoms'])}
+    This part works with the following products: {', '.join(product_info['This part works with the following products'])}
+    Part replaces these: {', '.join(product_info['Part replaces these'])}
+    URL: {product_info['URL']}
+    """
 
-        embedding = embedding_model.encode(document)
+    embedding = embedding_model.encode(document)
 
-        collection.add(
-            documents=[document],
-            embeddings=[embedding],
-            metadatas=[
-                {
-                    "partselect_number": product["PartSelect Number"],
-                    "manufacturer_part_number": product["Manufacturer Part Number"],
-                    "manufacturer": product["Manufactured by"],
-                    "url": product["URL"],
-                }
-            ],
-            ids=[product["PartSelect Number"]],
-        )
-    end = time.time()
-    print(f"time spent adding products to chromadb: {end - start:.2f}s")
+    collection.add(
+        documents=[document],
+        embeddings=[embedding],
+        metadatas=[
+            {
+                "partselect_number": product_info["PartSelect Number"],
+                "manufacturer_part_number": product_info["Manufacturer Part Number"],
+                "manufacturer": product_info["Manufactured by"],
+                "url": product_info["URL"],
+            }
+        ],
+        ids=[product_info["PartSelect Number"]],
+    )
+
+    print(f"Add {product_info['Product Name']}, vector-db now has {collection.count()} items.")
 
 
 def query_chroma(query, top_n=2):
@@ -124,7 +113,7 @@ def query_chroma(query, top_n=2):
         print(f"Metadata:\n{meta}")
 
 
-def extract_product_info(markdown_content, url, llm_client):
+def extract_product_info(markdown_content, url, llm_client) -> dict:
     messages = copy.deepcopy(messages_template)
     messages[0]["content"] = messages[0]["content"].format(
         markdown_content=markdown_content

@@ -70,7 +70,7 @@ no_search_prompt = {
 
 def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bool):
     query_embedding = embedding_model.encode(query)
-    results = collection.query(query_embeddings=[query_embedding], n_results=10)
+    results = collection.query(query_embeddings=[query_embedding], n_results=30)
 
     if results["documents"]:
         flattened_documents = [
@@ -82,6 +82,8 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
         chroma_context = None
         context_message = "No relevant context was found in the database for the query."
 
+    print(chroma_context)
+
     messages = [
         system_prompt,
         search_prompt if enable_browse else no_search_prompt,
@@ -91,7 +93,7 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
     ]
 
     completion = llm_client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=messages,
         tools=tools if enable_browse else None,
         tool_choice="auto" if enable_browse else None,
@@ -112,7 +114,7 @@ def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bo
         }
     )
     completion_after_search = llm_client.chat.completions.create(
-        model="gpt-4o",
+        model="gpt-4o-mini",
         messages=messages,
         tools=tools,
     )

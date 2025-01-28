@@ -2,8 +2,8 @@ from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from customer_agent import query_customer_agent
 from openai import OpenAI
-from vector_db import *
 from dotenv import load_dotenv
+from crawl import *
 import os
 
 load_dotenv()
@@ -14,7 +14,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY")
 CORS(app, resources={r"/*": {"origins": ["chrome-extension://"]}})
 
 llm_client = OpenAI()
-
+#find_and_add_products(10, "https://www.partselect.com/Dishwasher-Parts.htm", llm_client)
 
 @app.route("/api/message", methods=["POST"])
 def handle_message():

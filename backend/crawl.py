@@ -2,7 +2,9 @@ import asyncio
 from crawl4ai import AsyncWebCrawler
 from crawl4ai.async_configs import BrowserConfig, CrawlerRunConfig
 import re
-import time
+import queue
+from vector_db import add_to_vector_db
+
 
 
 async def crawl_async(url):
@@ -14,6 +16,10 @@ async def crawl_async(url):
         return result.markdown
 
 
+def crawl(url):
+    return asyncio.run(crawl_async(url))
+
+
 def crawl_multiple(urls: list) -> list:
     """Returns a list of markdown content"""
     res = []
@@ -22,40 +28,35 @@ def crawl_multiple(urls: list) -> list:
     return res
 
 
-def find_products(maxProductLimit: int):
-    urls = get_all_relevant_product_urls(maxProductLimit)
-    markdowns = crawl_multiple(urls)
-    return urls, markdowns
-
-
-def get_all_relevant_product_urls(maxProductLimit: int) -> list:
-    visited_product_urls = set()
-    initial_markdown = asyncio.run(crawl_async("https://www.partselect.com/"))
-    list_urls = extract_list_urls(initial_markdown)
+def find_and_add_products(limit: int, starting_url: str, llm_client):
     visited_urls = set()
+    visited_product_urls = set()
 
-    while list_urls and len(visited_product_urls) < maxProductLimit:
-        list_url = list_urls.pop()
-        if list_url in visited_urls:
+    urls = queue.Queue()
+    urls.put(starting_url)
+
+    while urls and len(visited_product_urls) < limit:
+        url = urls.get()
+        if url in visited_urls:
             continue
 
-        print("visiting: " + list_url)
-        visited_urls.add(list_url)
-        list_page_markdown = asyncio.run(crawl_async(list_url))
-        other_lists = extract_list_urls(list_page_markdown)
-        list_urls += other_lists
+        visited_urls.add(url)
+        markdown = asyncio.run(crawl_async(url))
+        for url in extract_general_urls(markdown):
+            urls.put(url) 
 
-        products = extract_product_urls(list_page_markdown)
-        for product_url in products:
-            if len(visited_product_urls) >= maxProductLimit:
+        product_urls = extract_product_urls(markdown)
+        for product_url in product_urls:
+            if len(visited_product_urls) >= limit:
                 break
-            if product_url not in visited_product_urls:
-                visited_product_urls.add(product_url)
+            if product_url in visited_product_urls:
+                continue
+            visited_urls.add(product_url)
+            visited_product_urls.add(product_url)
+            product_markdown = asyncio.run(crawl_async(product_url))
+            add_to_vector_db(product_markdown, product_url, llm_client)
 
-    return list(visited_product_urls)
 
-
-# TODO: Explain
 def extract_product_urls(text):
     if "page not found" in text.lower():
         return []
@@ -77,17 +78,17 @@ def extract_product_urls(text):
     return extracted_urls
 
 
-def extract_list_urls(text):
+def extract_general_urls(text):
     if "page not found" in text.lower():
         return []
 
-    list_item_pattern = r"\*\s+\[.*?\]\((https://www\.partselect\.com/.*?)\)"
+    general_pattern = r"\*\s+\[.*?\]\((https://www\.partselect\.com/.*?)\)"
 
     lines = text.splitlines()
     extracted_urls = []
 
     for line in lines:
-        match = re.search(list_item_pattern, line)
+        match = re.search(general_pattern, line)
         if match and ("dishwasher" in line.lower() or "refrigerator" in line.lower()):
             url = match.group(1)
             extracted_urls.append(clean_url(url))
