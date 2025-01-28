@@ -3,7 +3,6 @@ from flask_cors import CORS
 from customer_agent import query_customer_agent
 from openai import OpenAI
 from dotenv import load_dotenv
-from crawl import *
 import os
 
 load_dotenv()
@@ -11,10 +10,9 @@ load_dotenv()
 app = Flask(__name__)
 app.config["SESSION_PERMANENT"] = False
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
-CORS(app, resources={r"/*": {"origins": ["chrome-extension://"]}})
+CORS(app)
 
 llm_client = OpenAI()
-#find_and_add_products(10, "https://www.partselect.com/Dishwasher-Parts.htm", llm_client)
 
 @app.route("/api/message", methods=["POST"])
 def handle_message():
@@ -47,5 +45,5 @@ def reset_session():
     return jsonify({"message": "Session memory reset successfully"})
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     app.run()

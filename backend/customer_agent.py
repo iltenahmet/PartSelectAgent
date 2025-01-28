@@ -1,6 +1,6 @@
 import json
 from searchPartTool import search_partselect
-from vector_db import *
+from vector_db import query_chroma
 
 tools = [
     {
@@ -65,12 +65,12 @@ search_prompt = {
 
 no_search_prompt = {
     "role": "system",
-    "content": "A tool that would help you browse PartSelect for information about a specific part number is disabled. If you can't find any relevant information about the specified part, instruct user to enable the browsing functionality, so that you can browse the PartSelect website to retrieve what they need."
+    "content": "A tool that would help you browse PartSelect for information about a specific part number is disabled. If you can't find any relevant information about the specified part, instruct user to enable the browsing functionality, so that you can browse the PartSelect website to retrieve what they need.",
 }
 
+
 def query_customer_agent(query: str, chat_history, llm_client, enable_browse: bool):
-    query_embedding = embedding_model.encode(query)
-    results = collection.query(query_embeddings=[query_embedding], n_results=30)
+    results = query_chroma(query, 25)
 
     if results["documents"]:
         flattened_documents = [

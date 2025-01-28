@@ -59,12 +59,8 @@ messages_template = [
 
 
 def add_to_vector_db(product_markdown: str, url: str, llm_client):
-    match = re.search(r"PS(\d{8})", url)
-    if match and collection.get(ids=match.group(0)):
-        print(f"Product with id {match.group(0)} already exists in the database, skipping!")
-        return
-
     product_info = extract_product_info(product_markdown, url, llm_client)
+    print("adding to vector db " + product_info["Product Name"])
 
     document = f"""
     Product Name: {product_info['Product Name']}
@@ -95,22 +91,29 @@ def add_to_vector_db(product_markdown: str, url: str, llm_client):
         ids=[product_info["PartSelect Number"]],
     )
 
-    print(f"Add {product_info['Product Name']}, vector-db now has {collection.count()} items.")
+    print(
+        f"Add {product_info['Product Name']}, vector-db now has {collection.count()} items."
+    )
 
 
-def query_chroma(query, top_n=2):
+def is_in_vector_db(url: str) -> bool:
+    match = re.search(r"PS(\d{8})", url)
+    if not match:
+        return False
+
+    result = collection.get(ids=match.group(0))
+    return len(result.get("ids")) > 0
+
+
+def query_chroma(query, top_n=4):
     query_embedding = embedding_model.encode(query)
 
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=top_n,  # Number of results to retrieve
+        n_results=top_n,
     )
 
-    print(f"Top {top_n} results for the query: '{query}'")
-    for i, (doc, meta) in enumerate(zip(results["documents"], results["metadatas"])):
-        print(f"\nResult {i+1}:")
-        print(f"Document:\n{doc}")
-        print(f"Metadata:\n{meta}")
+    return results
 
 
 def extract_product_info(markdown_content, url, llm_client) -> dict:
