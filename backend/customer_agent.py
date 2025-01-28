@@ -1,5 +1,5 @@
 import json
-from searchPartTool import search_partselect
+from search_part_tool import search_partselect
 from vector_db import query_chroma
 
 tools = [
