@@ -2,7 +2,7 @@ import asyncio
 import copy
 import yaml
 from crawl import *
-from chromadb import chromadb 
+from chromadb import chromadb
 from sentence_transformers import SentenceTransformer
 
 persist_directory = "./chroma_persistent_data"
