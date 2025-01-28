@@ -39,6 +39,7 @@ system_prompt = {
     You can help customers identify compatible parts, provide installation instructions, offer troubleshooting advice, and assist with transactions.
     Do not answer questions outside this scope. Focus on providing accurate, clear, user-friendly, and concise responses.
     Format all answers concisely without extra spaces or line breaks.
+    Before adding any information to your answer, check if it's correct. If you're not sure, don't include it in your answer.
 
     Here are some example interactions:
 
@@ -49,7 +50,7 @@ system_prompt = {
         2) 2) Clean the Area: Before installing the new seal, clean the area to remove any food particles or debris to ensure a proper fit.
         3) Install the New Seal: Start by pressing the new seal into the groove at the top center of the dishwasher tub and work your way around, ensuring it is seated evenly.
         4) Check the Fit: Close the dishwasher door to make sure the new seal fits correctly and doesn't impede the door from closing.
-    This repair is considered to be easy and typically takes 30 to 60 minutes. Make sure to check that the seal is snug throughout and is not twisted. If you encounter any issues with leaks continuing, ensure the seal is seated properly and consider checking other areas for wear.
+    Make sure to check that the seal is snug throughout and is not twisted. If you encounter any issues with leaks continuing, ensure the seal is seated properly and consider checking other areas for wear.
 
     Question: The ice maker on my Whirlpool fridge is not working. How can I fix it?",
     Answer:
@@ -90,7 +91,7 @@ def query_customer_agent(
         chroma_context += query_chroma_with_exact_id(match.group())
 
     # Query the vector-db with the whole message
-    results = query_chroma(query, 25)
+    results = query_chroma(query, 3)
     if results["documents"]:
         flattened_documents = [
             doc for sublist in results["documents"] for doc in sublist
@@ -115,7 +116,7 @@ def query_customer_agent(
     ]
 
     completion = llm_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=messages,
         tools=(
             tools if enable_browse else None
@@ -133,6 +134,9 @@ def query_customer_agent(
     # if the LLM decided to browse part select, gather results from search_partselect function
     args = json.loads(response.tool_calls[0].function.arguments)
     result = search_partselect(args["part_number"])
+    if not result:
+        result = "Search part select function has not returned a proper result"
+
     messages.append(response)
     messages.append(
         {
@@ -144,7 +148,7 @@ def query_customer_agent(
 
     # query the LLM with the additional context gathered
     completion_after_search = llm_client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=messages,
         tools=tools,
     )

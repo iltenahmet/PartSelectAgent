@@ -11,7 +11,7 @@ The agent remembers the conversation memory as long as the browser session is ac
 - **Web Crawling**: Utilizes **crawl4AI** to crawl the PartSelect website and extract data.
 - **Data Storage**: Data is stored in a **ChromaDB** vector database.
 - **Browsing Functionality**: Implemented with **Playwright** for web interactions and **BeautifulSoup** for HTML parsing.
-- **Language Model**: **GPT-4o-mini**, which integrates with the browsing tool and ChromaDB. 
+- **Language Model**: **GPT-4o**, which integrates with the browsing tool and ChromaDB. 
 
 ---
 
