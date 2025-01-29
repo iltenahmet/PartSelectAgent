@@ -4,6 +4,8 @@
 
 The agent remembers the conversation memory as long as the browser session is active or until the user presses the reset memory button.
 
+Slides: [Link](https://docs.google.com/presentation/d/15xMSmnGorbkouSnoVfgP3E_HG9kZ-E3ggbZ7FIhfVdk/edit?usp=sharing)
+
 ### Architecture
 
 - **Backend**: Flask
